@@ -1,10 +1,11 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import {
   setItemCart
 } from '../util/localStorage';
 import { Product, Stock } from '../types';
+import { formatPrice } from '../util/format';
 
 interface CartProviderProps {
   children: ReactNode;
@@ -20,6 +21,7 @@ interface CartContextData {
   addProduct: (productId: number) => Promise<void>;
   removeProduct: (productId: number) => void;
   updateProductAmount: ({ productId, amount }: UpdateProductAmount) => void;
+  total: string;
 }
 
 const CartContext = createContext<CartContextData>({} as CartContextData);
@@ -40,11 +42,11 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       const productExist = updatedCart.find(product => product.id === productId);
 
       const stockProduct = await api.get<Stock>(`stock/${productId}`);
-      const stocktProductAmount = stockProduct.data.amount;
+      const stockProductAmount = stockProduct.data.amount;
       const currentAmount = productExist ? productExist.amount : 0;
       const amount = currentAmount + 1;
 
-      if (amount > stocktProductAmount) {
+      if (amount > stockProductAmount) {
         toast.error('Quantidade solicitada fora de estoque');
         return;
       }
@@ -120,9 +122,17 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     }
   };
 
+  const total = useMemo(() => {
+    return formatPrice(
+      cart.reduce((sumTotal, product) => {
+        return sumTotal += product.price * product.amount
+      }, 0)
+    )
+  }, [cart]);
+
   return (
     <CartContext.Provider
-      value={{ cart, addProduct, removeProduct, updateProductAmount }}
+      value={{ cart, addProduct, removeProduct, updateProductAmount, total }}
     >
       {children}
     </CartContext.Provider>
